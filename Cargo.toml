@@ -1,5 +1,5 @@
 [workspace]
-members = ["genalgo", "sim"]
+members = ["genalgo", "nnet", "sim"]
 
 resolver = "1"
 
