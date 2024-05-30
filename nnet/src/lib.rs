@@ -1,19 +1,27 @@
-use rand::{rngs::ThreadRng, Rng};
+use rand::{
+    rngs::ThreadRng, 
+    Rng
+};
 
+#[derive(Debug)]
 pub struct NNet {
     layers: Vec<Layer>,
+    bprint: Vec<usize>
 }
 
+#[derive(Debug)]
 struct Layer {
     neurons: Vec<Neuron>
 }
 
+#[derive(Debug)]
 struct Neuron {
     weights: Vec<f32>,
     bias: f32
 }
 
 impl NNet {
+    // The first element is the input size
     pub fn new(bprint: &[usize]) -> Self {
         let mut rng = rand::thread_rng();
 
@@ -23,10 +31,10 @@ impl NNet {
             layers.push(Layer::new(bprint[i], bprint[i-1], &mut rng));
         }
 
-        NNet { layers }
+        let bprint = bprint.to_vec();
+        NNet { layers, bprint }
     }
 
-    // Returns a size 4 probability array
     pub fn feed_forward(&self, inputs: Vec<f32>) -> Vec<f32> {
         let mut inp_cp = inputs.clone();
 
@@ -34,7 +42,44 @@ impl NNet {
             inp_cp = layer.feed_forward(&inp_cp);
         }
 
-        inputs.to_vec()
+        inp_cp
+    }
+
+    pub fn serialize(&self) -> Vec<f32> {
+        let mut strand = Vec::new();
+        
+        for layer in &self.layers {
+            let temp = layer.serialize();
+
+            for n in temp {
+                strand.push(n);
+            }
+        }
+
+        strand
+    }
+
+    pub fn deserialize(&self, strand: Vec<f32>) {
+        let mut new_layers: Vec<Layer> = Vec::with_capacity(self.layers.len());
+        let mut count = 0;
+
+        for i in 1..self.bprint.len() {
+            let mut neurons = Vec::with_capacity(self.bprint[i]);
+
+            for _ in 0..self.bprint[i] {
+                let mut temp = Vec::new();
+
+                for _ in 0..self.bprint[i-1] {
+                    temp.push(strand[count]);    
+                    count += 1;
+                }
+
+                neurons.push(Neuron { weights: temp, bias: strand[count] });
+                count += 1;
+            }
+
+            new_layers.push(Layer { neurons });
+        }
     }
 }
 
@@ -57,6 +102,19 @@ impl Layer {
 
         results
     }
+
+    fn serialize(&self) -> Vec<f32> {
+        let mut strand = Vec::new();
+
+        for neuron in &self.neurons {
+            for w in &neuron.weights {
+                strand.push(*w);
+            }
+            strand.push(neuron.bias);
+        }
+
+        strand
+    }
 }
 
 impl Neuron {
@@ -64,8 +122,8 @@ impl Neuron {
         let bias = rng.gen_range(-5.0..5.0);
 
         let mut weights = Vec::with_capacity(pre_size);
-        for i in 0..pre_size {
-            weights[i] = rng.gen_range(-5.0..5.0);
+        for _ in 0..pre_size {
+            weights.push(rng.gen_range(-5.0..5.0));
         }
 
         Neuron { weights, bias }
@@ -83,8 +141,16 @@ impl Neuron {
 }
 
 mod tests {
+
     #[test]
-    fn new_nn_test() {
-        todo!()
+    fn serialize_deserialize_test() {
+        let n = super::NNet::new(&[3, 2, 2, 1]);
+        let strand = n.serialize();
+        dbg!(&strand);
+
+        n.deserialize(strand);
+        dbg!(n.serialize());
     }
 }
+
+
