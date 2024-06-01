@@ -1,3 +1,12 @@
+pub mod sim;
+
+use sim::Sim;
+
 fn main() {
-    println!("Hello, world!");
+    let mut sim = Sim::init();
+
+    while !sim.rl_handle.window_should_close() {
+        // sim.update();
+        sim.draw();
+    }
 }

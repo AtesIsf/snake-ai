@@ -6,3 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+nnet = { path = "../nnet" }
+genalgo = { path = "../genalgo" }
+raylib = "5.0.1"
+rand = "0.8.5"
