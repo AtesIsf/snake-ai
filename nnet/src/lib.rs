@@ -3,18 +3,18 @@ use rand::{
     Rng
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct NNet {
     layers: Vec<Layer>,
     bprint: Vec<usize>
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Layer {
     neurons: Vec<Neuron>
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Neuron {
     weights: Vec<f32>,
     bias: f32
@@ -22,13 +22,11 @@ struct Neuron {
 
 impl NNet {
     // The first element is the input size
-    pub fn new(bprint: &[usize]) -> Self {
-        let mut rng = rand::thread_rng();
-
+    pub fn new(bprint: &[usize], rng: &mut ThreadRng) -> Self {
         let mut layers = Vec::with_capacity(bprint.len());
         
         for i in 1..bprint.len() {
-            layers.push(Layer::new(bprint[i], bprint[i-1], &mut rng));
+            layers.push(Layer::new(bprint[i], bprint[i-1], rng));
         }
 
         let bprint = bprint.to_vec();
@@ -140,11 +138,13 @@ impl Neuron {
     }
 }
 
+#[cfg(tests)]
 mod tests {
+    use super::*;
 
     #[test]
     fn serialize_deserialize_test() {
-        let n = super::NNet::new(&[3, 2, 2, 1]);
+        let n = NNet::new(&[3, 2, 2, 1]);
         let strand = n.serialize();
         dbg!(&strand);
 
