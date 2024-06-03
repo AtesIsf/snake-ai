@@ -138,19 +138,3 @@ impl Neuron {
     }
 }
 
-#[cfg(tests)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn serialize_deserialize_test() {
-        let n = NNet::new(&[3, 2, 2, 1]);
-        let strand = n.serialize();
-        dbg!(&strand);
-
-        n.deserialize(strand);
-        dbg!(n.serialize());
-    }
-}
-
-

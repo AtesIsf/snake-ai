@@ -6,14 +6,9 @@ pub struct Sim {
     algo: GenAlgo,
     pub rl_handle: RaylibHandle,
     rl_thread: RaylibThread,
-    gen_counter: u32,
+    gen_counter: usize,
     rng: ThreadRng,
-    apple_data: AppleData
-}
-
-struct AppleData {
-    is_eaten: Vec<bool>,
-    pos: Vec<(i32, i32)>
+    apple_pos: Vec<(i32, i32)>
 }
 
 impl Sim {
@@ -23,25 +18,21 @@ impl Sim {
             .title("Snake Game AI")
             .build();
         rl_handle.set_exit_key(Some(KeyboardKey::KEY_NULL));
-        rl_handle.set_target_fps(360);
+        rl_handle.set_target_fps(30);
 
         let n_snakes = 15;
         let algo = GenAlgo::new(rand::thread_rng(), n_snakes);
 
         let mut rng = rand::thread_rng();
-        let mut is_eaten = Vec::with_capacity(n_snakes);
-        let mut pos = Vec::with_capacity(n_snakes);
+        let mut apple_pos = Vec::with_capacity(n_snakes);
 
         for _ in 0..n_snakes {
-            is_eaten.push(false);
-            pos.push(
+            apple_pos.push(
                 (rng.gen_range(0..10), rng.gen_range(0..10))
             );
         }
 
-        let apple_data = AppleData { is_eaten, pos };
-
-        Sim { algo, rl_handle, rl_thread, gen_counter: 0, rng, apple_data }
+        Sim { algo, rl_handle, rl_thread, gen_counter: 1, rng, apple_pos }
     }
 
     pub fn draw(&mut self) {
@@ -53,38 +44,80 @@ impl Sim {
         let mut y = 140;
         let mut grid: Vec<Rectangle>;
 
-        for _ in 0..3 {
+        for i in 1..=3 {
             x = 20;
-            for _ in 0..5 {
+            for j in 1..=5 {
+                // Draw Grid
                 grid = Sim::get_grid(x as f32, y as f32);    
                 draw_handle.draw_rectangle(x, y, 400, 400, Color::LIMEGREEN);
                 for rec in grid {
                     draw_handle.draw_rectangle_lines_ex(rec, 1.0, Color::RAYWHITE);
                 }
                 x += 420;
-            }
-            y += 420;
-        }
-        
-        // Draw Apples
-        for i in 1..=3 {
-            for j in 1..=5 {
-                // It's ugly but it works
+
+                // Draw Apples
                 draw_handle.draw_circle(
-                    20 + self.apple_data.pos[i * j - 1].0 * 40 + 20 + 420 * (j - 1) as i32, 
-                    140 + self.apple_data.pos[i * j - 1].1 * 40 + 20 + 420 * (i - 1) as i32, 
+                    20 + self.apple_pos[i * j - 1].0 * 40 + 20 + 420 * (j - 1) as i32, 
+                    140 + self.apple_pos[i * j - 1].1 * 40 + 20 + 420 * (i - 1) as i32, 
                     18.0, 
                     Color::RED
                 );
-            }
-        }
 
+                // Draw Snakes
+                if !self.algo.pops[i * j - 1].is_alive {
+                    continue;
+                }
+
+                for p in self.algo.pops[i * j - 1].pos.iter() {
+                    draw_handle.draw_circle(
+                        20 + p.0 * 40 + 20 + 420 * (j - 1) as i32, 
+                        140 + p.1 * 40 + 20 + 420 * (i - 1) as i32, 
+                        20.0, 
+                        Color::AZURE
+                    );
+                }
+            }
+            y += 420;
+        }
+       
         // Draws FPS & other info
         draw_handle.draw_fps(20, 10);
+        draw_handle.draw_text(
+            format!("Generation: {}", self.gen_counter).as_str(),
+            20, 50, 
+            40, 
+            Color::RAYWHITE
+        );
     }
 
     pub fn update(&mut self) {
-        todo!()
+        let mut counter = 0;
+        let mut all_dead = true;
+        for s in self.algo.pops.iter_mut() {
+
+            if !s.is_alive {
+                counter += 1;
+                continue;
+            }
+
+            all_dead = false;
+            s.update(self.apple_pos[counter]);
+
+            if s.pos[0] == self.apple_pos[counter] {
+                self.apple_pos[counter] = (self.rng.gen_range(0..10), self.rng.gen_range(0..10));
+                s.eat_apple();
+            }
+            counter += 1;
+        }
+
+        if all_dead {
+            for s in self.algo.pops.iter_mut() {
+                s.on_death();
+            }
+
+            self.algo.evolve();
+            self.gen_counter += 1;
+        }
     }
 
     fn get_grid(x: f32, y: f32) -> Vec<Rectangle> {
@@ -107,5 +140,4 @@ impl Sim {
         grid
     }
 }
-    
-
+ 

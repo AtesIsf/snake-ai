@@ -6,16 +6,39 @@ use rand::{
 };
 use nnet::*;
 
+#[derive(Clone, Copy)]
+pub enum Direction {
+    Up,
+    Down,
+    Left,
+    Right
+}
+
 #[derive(Clone)]
 pub struct Snake {
     net: NNet,
-    pos: (u8, u8),
+    pub pos: Vec<(i32, i32)>,
+    pub n_apples: usize,
+    pub lifetime: usize,
+    pub is_alive: bool,
     score: f32,
+    dir: Direction
 }
 
 pub struct GenAlgo {
-    pops: Vec<Snake>,
+    pub pops: Vec<Snake>,
     rng: ThreadRng
+}
+
+impl Direction {
+    pub fn to_f32(&self) -> f32 {
+        match self {
+            Direction::Up => 0.0,
+            Direction::Down => 1.0,
+            Direction::Left => 2.0,
+            Direction::Right => 3.0,
+        }
+    }
 }
 
 impl Snake {
@@ -23,10 +46,101 @@ impl Snake {
         // May change the bprint later
         let net = NNet::new(&[8, 8, 8, 4], rng);
                 
-        let x: u8 = rng.gen_range(0..=9);
-        let y: u8 = rng.gen_range(0..=9);
+        let mut pos = Vec::with_capacity(3);
+        let x = 0;
+        let mut y = 2;
 
-        Snake { net, pos: (x, y), score: 0.0 }
+        for _ in 0..3 {
+            pos.push((x, y));
+            y -= 1;
+        }
+
+        Snake { net, pos, n_apples: 0, score: 0.0, lifetime: 0, is_alive: true, dir: Direction::Down }
+    }
+
+    pub fn update(&mut self, apple_pos: (i32, i32)) {
+        // nnet process
+
+        /*
+         * distance to the upper wall
+         * distance to the lower wall
+         * distance to the left wall
+         * distance to the right wall
+         * relative pos x of apple
+         * relative pos y of apple
+         * the direction of the snake
+         * the length of the snake
+         */
+        let inputs = vec![
+            0.0 - self.pos[0].1 as f32,
+            self.pos[0].1 as f32 - 9.0,
+            0.0 - self.pos[0].0 as f32,
+            self.pos[0].0 as f32 - 9.0,
+            apple_pos.0 as f32 - self.pos[0].0 as f32,
+            apple_pos.1 as f32 - self.pos[0].1 as f32,
+            self.dir.to_f32(),
+            self.n_apples as f32 + 3.0 
+        ];
+
+        let response = self.net.feed_forward(inputs);
+        let mut max_ind = 0;
+        for i in 1..response.len() {
+            if response[i] > response[max_ind] {
+                max_ind = i;
+            }
+        }
+
+        match max_ind {
+            0 => self.dir = Direction::Up,
+            1 => self.dir = Direction::Down,
+            2 => self.dir = Direction::Left,
+            3 => self.dir = Direction::Right,
+            _ => (),
+        }
+
+        // Movement
+        for i in (1..self.pos.len()).rev() {
+            self.pos[i] = self.pos[i - 1];
+        }
+
+        match self.dir {
+            Direction::Up => {
+                self.pos[0].1 -= 1;
+            }
+            Direction::Down => {
+                self.pos[0].1 += 1;
+            }
+            Direction::Left => {
+                self.pos[0].0 -= 1;
+            }
+            Direction::Right => {
+                self.pos[0].0 += 1;
+            }
+        }
+
+        // Death Check
+        if ! (self.pos[0].0 <= 9 && self.pos[0].0 >= 0) {
+            self.is_alive = false;
+        }
+
+        if ! (self.pos[0].1 <= 9 && self.pos[0].1 >= 0) {
+            self.is_alive = false;
+        }
+
+        // Lifetime update
+        self.lifetime += 1;
+    }
+
+    pub fn on_death(&mut self) {
+        self.score += 10.0 * self.n_apples as f32 / (self.lifetime as f32/30.0);
+        self.score += self.n_apples as f32 * 10.0;
+    }
+
+    pub fn eat_apple(&mut self) {
+        self.n_apples += 1;
+        self.pos.push(
+            (self.pos.last().unwrap().0, self.pos.last().unwrap().1)
+        );
     }
 }
 
@@ -53,7 +167,7 @@ impl GenAlgo {
 
     fn select(snakes: &Vec<Snake>, rng: &mut ThreadRng) -> (Snake, Snake) {
         let weights: Vec<f32> = snakes.iter()
-            .map(|s| s.score)
+            .map(|s| f32::max(s.score, 0.1))
             .collect();
 
         let dist = WeightedIndex::new(weights).unwrap();
@@ -107,12 +221,3 @@ impl GenAlgo {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn foo() {
-        todo!()
-    }
-}
