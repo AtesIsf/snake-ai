@@ -200,7 +200,7 @@ impl GenAlgo {
     }
 
     fn mutate(snakes: &mut Vec<Snake>, rng: &mut ThreadRng) {
-        let mut_chance = 0.3;
+        let mut_chance = 0.5;
 
         let mut strands: Vec<Vec<f32>> = snakes.iter()
             .map(|s| s.net.serialize())

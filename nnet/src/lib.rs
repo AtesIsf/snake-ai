@@ -40,7 +40,7 @@ impl NNet {
             inp_cp = layer.feed_forward(&inp_cp);
         }
 
-        inp_cp
+        NNet::softmax(inp_cp)
     }
 
     pub fn serialize(&self) -> Vec<f32> {
@@ -78,6 +78,20 @@ impl NNet {
 
             new_layers.push(Layer { neurons });
         }
+    }
+
+    fn softmax(vals: Vec<f32>) -> Vec<f32> {
+        let max_val = vals.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+        
+        let exp_vals: Vec<f32> = vals.iter()
+            .map(|x| (x-max_val).exp())
+            .collect();
+
+        let sum: f32 = exp_vals.iter().sum();
+
+        exp_vals.iter()
+            .map(|x| x / sum)
+            .collect()
     }
 }
 
@@ -134,7 +148,8 @@ impl Neuron {
             result += inputs[i] + self.weights[i];
         }
 
-        result + self.bias
+        // RELU activation function
+        f32::max(result + self.bias, 0.0)
     }
 }
 

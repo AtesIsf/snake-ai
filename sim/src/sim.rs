@@ -8,17 +8,22 @@ pub struct Sim {
     rl_thread: RaylibThread,
     gen_counter: usize,
     rng: ThreadRng,
-    apple_pos: Vec<(i32, i32)>
+    n_snakes: usize,
+    apple_pos: Vec<(i32, i32)>,
+    fps: u32,
+    timer: usize
 }
 
 impl Sim {
     pub fn init() -> Self {
+        let fps = 30;
+
         let (mut rl_handle, rl_thread) = raylib::init()
             .size(2120, 1400)
             .title("Snake Game AI")
             .build();
         rl_handle.set_exit_key(Some(KeyboardKey::KEY_NULL));
-        rl_handle.set_target_fps(30);
+        rl_handle.set_target_fps(fps);
 
         let n_snakes = 15;
         let algo = GenAlgo::new(rand::thread_rng(), n_snakes);
@@ -32,7 +37,7 @@ impl Sim {
             );
         }
 
-        Sim { algo, rl_handle, rl_thread, gen_counter: 1, rng, apple_pos }
+        Sim { algo, rl_handle, rl_thread, gen_counter: 1, rng, n_snakes, apple_pos, fps, timer: fps as usize * 30 }
     }
 
     pub fn draw(&mut self) {
@@ -93,21 +98,24 @@ impl Sim {
     pub fn update(&mut self) {
         let mut counter = 0;
         let mut all_dead = true;
-        for s in self.algo.pops.iter_mut() {
 
-            if !s.is_alive {
+        if self.timer > 0 {
+            for s in self.algo.pops.iter_mut() {
+
+                if !s.is_alive {
+                    counter += 1;
+                    continue;
+                }
+
+                all_dead = false;
+                s.update(self.apple_pos[counter]);
+
+                if s.pos[0] == self.apple_pos[counter] {
+                    self.apple_pos[counter] = (self.rng.gen_range(0..10), self.rng.gen_range(0..10));
+                    s.eat_apple();
+                }
                 counter += 1;
-                continue;
             }
-
-            all_dead = false;
-            s.update(self.apple_pos[counter]);
-
-            if s.pos[0] == self.apple_pos[counter] {
-                self.apple_pos[counter] = (self.rng.gen_range(0..10), self.rng.gen_range(0..10));
-                s.eat_apple();
-            }
-            counter += 1;
         }
 
         if all_dead {
@@ -117,7 +125,17 @@ impl Sim {
 
             self.algo.evolve();
             self.gen_counter += 1;
+            self.timer = self.fps as usize * 30;
+
+            self.apple_pos.clear();
+            for _ in 0..self.n_snakes {
+                self.apple_pos.push(
+                    (self.rng.gen_range(0..10), self.rng.gen_range(0..10))
+                );
+            }
         }
+
+        self.timer -= 1;
     }
 
     fn get_grid(x: f32, y: f32) -> Vec<Rectangle> {
