@@ -132,8 +132,7 @@ impl Snake {
     }
 
     pub fn on_death(&mut self) {
-        self.score += 10.0 * self.n_apples as f32 / (self.lifetime as f32/30.0);
-        self.score += self.n_apples as f32 * 10.0;
+        self.score += (self.n_apples + self.lifetime) as f32 * 10.0;
     }
 
     pub fn eat_apple(&mut self) {
@@ -200,7 +199,7 @@ impl GenAlgo {
     }
 
     fn mutate(snakes: &mut Vec<Snake>, rng: &mut ThreadRng) {
-        let mut_chance = 0.5;
+        let mut_chance = 0.3;
 
         let mut strands: Vec<Vec<f32>> = snakes.iter()
             .map(|s| s.net.serialize())
