@@ -1,7 +1,0 @@
-/home/ates-isf/Programming/snake-ai/target/debug/build/raylib-sys-65c82594f1cdcc50/out/lib/libraylib.a
-/home/ates-isf/Programming/snake-ai/target/debug/build/raylib-sys-65c82594f1cdcc50/out/include/raylib.h
-/home/ates-isf/Programming/snake-ai/target/debug/build/raylib-sys-65c82594f1cdcc50/out/include/rlgl.h
-/home/ates-isf/Programming/snake-ai/target/debug/build/raylib-sys-65c82594f1cdcc50/out/include/raymath.h
-/home/ates-isf/Programming/snake-ai/target/debug/build/raylib-sys-65c82594f1cdcc50/out/lib/pkgconfig/raylib.pc
-/home/ates-isf/Programming/snake-ai/target/debug/build/raylib-sys-65c82594f1cdcc50/out/lib/cmake/raylib/raylib-config-version.cmake
-/home/ates-isf/Programming/snake-ai/target/debug/build/raylib-sys-65c82594f1cdcc50/out/lib/cmake/raylib/raylib-config.cmake
