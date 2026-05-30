@@ -8,5 +8,5 @@ edition = "2021"
 [dependencies]
 nnet = { path = "../nnet" }
 genalgo = { path = "../genalgo" }
-raylib = "5.0.1"
+raylib = "5.5.1"
 rand = "0.8.5"
