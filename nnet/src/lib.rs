@@ -57,7 +57,7 @@ impl NNet {
         strand
     }
 
-    pub fn deserialize(&self, strand: Vec<f32>) {
+    pub fn deserialize(&mut self, strand: Vec<f32>) {
         let mut new_layers: Vec<Layer> = Vec::with_capacity(self.layers.len());
         let mut count = 0;
 
@@ -78,6 +78,8 @@ impl NNet {
 
             new_layers.push(Layer { neurons });
         }
+
+        self.layers = new_layers;
     }
 
     fn softmax(vals: Vec<f32>) -> Vec<f32> {
@@ -145,11 +147,62 @@ impl Neuron {
         let mut result: f32 = 0.0;
 
         for i in 0..inputs.len() {
-            result += inputs[i] + self.weights[i];
+            result += inputs[i] * self.weights[i];
         }
 
         // RELU activation function
         f32::max(result + self.bias, 0.0)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_neuron_dot_product_and_relu() {
+        let neuron = Neuron {
+            weights: vec![0.5, -1.0, 2.0],
+            bias: -0.5,
+        };
+        // 0.5 * 2.0 + (-1.0) * 1.0 + 2.0 * 3.0 + (-0.5) = 1.0 - 1.0 + 6.0 - 0.5 = 5.5
+        let out = neuron.feed_forward(&[2.0, 1.0, 3.0]);
+        assert!((out - 5.5).abs() < 1e-6);
+
+        // Negative sum clamped by ReLU to 0.0
+        let clamped = neuron.feed_forward(&[-10.0, 0.0, 0.0]);
+        assert_eq!(clamped, 0.0);
+    }
+
+    #[test]
+    fn test_serialize_deserialize_fidelity() {
+        let mut rng = rand::thread_rng();
+        let blueprint = [8, 16, 4];
+        let net1 = NNet::new(&blueprint, &mut rng);
+        let strand1 = net1.serialize();
+
+        let mut net2 = NNet::new(&blueprint, &mut rng);
+        net2.deserialize(strand1.clone());
+        let strand2 = net2.serialize();
+
+        assert_eq!(strand1, strand2);
+
+        let test_input = vec![0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8];
+        let out1 = net1.feed_forward(test_input.clone());
+        let out2 = net2.feed_forward(test_input);
+        for (a, b) in out1.iter().zip(out2.iter()) {
+            assert!((a - b).abs() < 1e-6);
+        }
+    }
+
+    #[test]
+    fn test_softmax_properties() {
+        let out = NNet::softmax(vec![1.0, 2.0, 3.0]);
+        let sum: f32 = out.iter().sum();
+        assert!((sum - 1.0).abs() < 1e-5);
+        assert!(out[2] > out[1]);
+        assert!(out[1] > out[0]);
+    }
+}
+
 
