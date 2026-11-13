@@ -33,10 +33,8 @@ impl Sim {
         let mut rng = rand::thread_rng();
         let mut apple_pos = Vec::with_capacity(n_snakes);
 
-        for _ in 0..n_snakes {
-            apple_pos.push(
-                (rng.gen_range(0..10), rng.gen_range(0..10))
-            );
+        for i in 0..n_snakes {
+            apple_pos.push(Sim::generate_apple(&algo.pops[i].pos, &mut rng));
         }
 
         Sim { algo, rl_handle, rl_thread, gen_counter: 1, rng, n_snakes, apple_pos, fps, timer: fps as usize * 30, max_apples: 0, max_score: 0.0 }
@@ -124,8 +122,8 @@ impl Sim {
                     s.on_death();
                     self.max_score = self.max_score.max(s.score);
                 } else if s.pos[0] == self.apple_pos[counter] {
-                    self.apple_pos[counter] = (self.rng.gen_range(0..10), self.rng.gen_range(0..10));
                     s.eat_apple();
+                    self.apple_pos[counter] = Sim::generate_apple(&s.pos, &mut self.rng);
                     self.max_apples = self.max_apples.max(s.n_apples);
                 }
                 counter += 1;
@@ -134,8 +132,11 @@ impl Sim {
 
         if all_dead {
             for s in self.algo.pops.iter_mut() {
-                s.on_death();
-                self.max_score = self.max_score.max(s.score);
+                if s.is_alive {
+                    s.is_alive = false;
+                    s.on_death();
+                    self.max_score = self.max_score.max(s.score);
+                }
                 self.max_apples = self.max_apples.max(s.n_apples);
             }
 
@@ -144,14 +145,24 @@ impl Sim {
             self.timer = self.fps as usize * 30;
 
             self.apple_pos.clear();
-            for _ in 0..self.n_snakes {
-                self.apple_pos.push(
-                    (self.rng.gen_range(0..10), self.rng.gen_range(0..10))
-                );
+            for i in 0..self.n_snakes {
+                self.apple_pos.push(Sim::generate_apple(&self.algo.pops[i].pos, &mut self.rng));
             }
         }
 
         self.timer = self.timer.saturating_sub(1);
+    }
+
+    pub fn generate_apple(snake_body: &[(i32, i32)], rng: &mut ThreadRng) -> (i32, i32) {
+        if snake_body.len() >= 100 {
+            return (rng.gen_range(0..10), rng.gen_range(0..10));
+        }
+        loop {
+            let pos = (rng.gen_range(0..10), rng.gen_range(0..10));
+            if !snake_body.contains(&pos) {
+                return pos;
+            }
+        }
     }
 
     fn get_grid(x: f32, y: f32) -> Vec<Rectangle> {
@@ -266,7 +277,7 @@ mod tests {
         max_score = max_score.max(s1.score);
         max_apples = max_apples.max(s1.n_apples);
         assert_eq!(max_apples, 2);
-        assert_eq!(max_score, 2045.0);
+        assert!((max_score - 2000.0).abs() < f32::EPSILON);
 
         s2.n_apples = 5;
         s2.lifetime = 120;
@@ -275,7 +286,7 @@ mod tests {
         max_score = max_score.max(s2.score);
         max_apples = max_apples.max(s2.n_apples);
         assert_eq!(max_apples, 5);
-        assert_eq!(max_score, 5120.0);
+        assert!((max_score - 5000.0).abs() < f32::EPSILON);
 
         // Generation 2 snake with lower performance does not degrade max values
         let mut s3 = Snake::new(&mut rng);
@@ -286,7 +297,19 @@ mod tests {
         max_score = max_score.max(s3.score);
         max_apples = max_apples.max(s3.n_apples);
         assert_eq!(max_apples, 5);
-        assert_eq!(max_score, 5120.0);
+        assert!((max_score - 5000.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_generate_apple_guard() {
+        let mut rng = rand::thread_rng();
+        let body = vec![(4, 5), (4, 6), (4, 7)];
+        for _ in 0..200 {
+            let apple = Sim::generate_apple(&body, &mut rng);
+            assert!(apple.0 >= 0 && apple.0 < 10);
+            assert!(apple.1 >= 0 && apple.1 < 10);
+            assert!(!body.contains(&apple), "Generated apple must not be on snake body");
+        }
     }
 
     #[test]

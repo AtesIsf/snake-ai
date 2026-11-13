@@ -34,10 +34,11 @@ impl NNet {
     }
 
     pub fn feed_forward(&self, inputs: Vec<f32>) -> Vec<f32> {
-        let mut inp_cp = inputs.clone();
+        let mut inp_cp = inputs;
 
-        for layer in &self.layers {
-            inp_cp = layer.feed_forward(&inp_cp);
+        for (i, layer) in self.layers.iter().enumerate() {
+            let is_last = i == self.layers.len() - 1;
+            inp_cp = layer.feed_forward(&inp_cp, !is_last);
         }
 
         NNet::softmax(inp_cp)
@@ -107,11 +108,11 @@ impl Layer {
         Layer { neurons }
     }
 
-    fn feed_forward(&self, inputs: &[f32]) -> Vec<f32> {
+    fn feed_forward(&self, inputs: &[f32], relu: bool) -> Vec<f32> {
         let mut results = Vec::with_capacity(self.neurons.len());
 
-        for i in 0..self.neurons.len() {
-            results.push(self.neurons[i].feed_forward(&inputs));
+        for neuron in &self.neurons {
+            results.push(neuron.feed_forward(inputs, relu));
         }
 
         results
@@ -133,25 +134,34 @@ impl Layer {
 
 impl Neuron {
     fn new(pre_size: usize, rng: &mut ThreadRng) -> Self {
-        let bias = rng.gen_range(-5.0..5.0);
+        let limit = if pre_size > 0 {
+            (1.0 / pre_size as f32).sqrt()
+        } else {
+            1.0
+        };
+        let bias = rng.gen_range(-0.05..=0.05);
 
         let mut weights = Vec::with_capacity(pre_size);
         for _ in 0..pre_size {
-            weights.push(rng.gen_range(-5.0..5.0));
+            weights.push(rng.gen_range(-limit..=limit));
         }
 
         Neuron { weights, bias }
     }
 
-    fn feed_forward(&self, inputs: &[f32]) -> f32 {
+    fn feed_forward(&self, inputs: &[f32], relu: bool) -> f32 {
         let mut result: f32 = 0.0;
 
         for i in 0..inputs.len() {
             result += inputs[i] * self.weights[i];
         }
+        result += self.bias;
 
-        // RELU activation function
-        f32::max(result + self.bias, 0.0)
+        if relu {
+            f32::max(result, 0.0)
+        } else {
+            result
+        }
     }
 }
 
@@ -166,12 +176,32 @@ mod tests {
             bias: -0.5,
         };
         // 0.5 * 2.0 + (-1.0) * 1.0 + 2.0 * 3.0 + (-0.5) = 1.0 - 1.0 + 6.0 - 0.5 = 5.5
-        let out = neuron.feed_forward(&[2.0, 1.0, 3.0]);
-        assert!((out - 5.5).abs() < 1e-6);
+        let out_relu = neuron.feed_forward(&[2.0, 1.0, 3.0], true);
+        assert!((out_relu - 5.5).abs() < 1e-6);
 
-        // Negative sum clamped by ReLU to 0.0
-        let clamped = neuron.feed_forward(&[-10.0, 0.0, 0.0]);
+        let out_linear = neuron.feed_forward(&[2.0, 1.0, 3.0], false);
+        assert!((out_linear - 5.5).abs() < 1e-6);
+
+        // Negative sum clamped by ReLU to 0.0, but linear keeps negative
+        let clamped = neuron.feed_forward(&[-10.0, 0.0, 0.0], true);
         assert_eq!(clamped, 0.0);
+
+        let unclamped = neuron.feed_forward(&[-10.0, 0.0, 0.0], false);
+        // -10.0 * 0.5 + 0.0 + 0.0 + (-0.5) = -5.5
+        assert!((unclamped - (-5.5)).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_xavier_initialization_bounds() {
+        let mut rng = rand::thread_rng();
+        let pre_size = 16;
+        let neuron = Neuron::new(pre_size, &mut rng);
+        let limit = (1.0 / pre_size as f32).sqrt();
+        assert_eq!(neuron.weights.len(), pre_size);
+        for w in &neuron.weights {
+            assert!(*w >= -limit && *w <= limit);
+        }
+        assert!(neuron.bias >= -0.05 && neuron.bias <= 0.05);
     }
 
     #[test]
